@@ -1,0 +1,9 @@
+.idea/
+__pycache__/
+venv/
+logs
+*.log
+.vscode/*
+*.DS_Store
+.AppleDouble
+.LSOverride
