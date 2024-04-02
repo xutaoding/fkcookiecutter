@@ -1,8 +1,5 @@
 """Utilities."""
-# -- XXX This module must not use translation as that causes
-# -- a recursive loader import!
-from django.conf import settings
-from django.utils import timezone
+from . import timezone
 
 is_aware = timezone.is_aware
 # celery schedstate return None will make it not work
@@ -47,3 +44,38 @@ def is_database_scheduler(scheduler):
         scheduler == 'django'
         or issubclass(symbol_by_name(scheduler), DatabaseScheduler)
     )
+
+
+def is_iterable(x):
+    "An implementation independent way of checking for iterables"
+    try:
+        iter(x)
+    except TypeError:
+        return False
+    else:
+        return True
+
+
+def make_hashable(value):
+    """
+    Attempt to make value hashable or raise a TypeError if it fails.
+
+    The returned value should generate the same hash for equal values.
+    """
+    if isinstance(value, dict):
+        return tuple(
+            [
+                (key, make_hashable(nested_value))
+                for key, nested_value in sorted(value.items())
+            ]
+        )
+    # Try hash to avoid converting a hashable iterable (e.g. string, frozenset)
+    # to a tuple.
+    try:
+        hash(value)
+    except TypeError:
+        if is_iterable(value):
+            return tuple(map(make_hashable, value))
+        # Non-hashable, non-iterable.
+        raise
+    return value

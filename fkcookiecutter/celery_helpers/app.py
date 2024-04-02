@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 
 import logging
-import os
 from importlib import import_module
 from collections import OrderedDict
 
