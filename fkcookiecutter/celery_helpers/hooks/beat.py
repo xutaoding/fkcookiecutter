@@ -8,11 +8,12 @@
 """
 
 import socket
+
 from celery import platforms
 from celery.utils.log import get_logger
 from celery.apps.beat import Beat as BaseBeat
 
-from deprecated import deprecated
+from ..core.deprecated import deprecated
 
 __all__ = ('Beat',)
 

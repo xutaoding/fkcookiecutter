@@ -5,8 +5,6 @@ import logging
 import pkgutil
 import importlib
 
-from ..exceptions import ImproperlyConfigured
-
 logger = logging.getLogger('flask')
 
 

@@ -5,15 +5,16 @@ from celery.signals import celeryd_after_setup
 from celery.signals import beat_init
 from celery.signals import task_internal_error
 
-from .utils.webapp import run_with_thread
-from .conf import CeleryConfig
+from ..conf import CeleryConfig
+from ..core.webapp import run_with_thread
 
-worker_logger = logging.getLogger("celery.worker")
+logger = logging.getLogger("celery.worker")
 
 
 @beat_init.connect
 def unregister_when_beat_init(sender, **kwargs):
     unregister_useless_tasks()
+    logger.warning("Celery beat command is started!")
 
     if getattr(CeleryConfig, "CELERY_WEBAPP", False):
         run_with_thread(signal=kwargs.get('signal'))
@@ -32,14 +33,15 @@ def handle_task_internal_error(sender, task_id, args, kwargs, request, einfo, **
     """ Handle errors in tasks by signal, that is not internal logic error in task func code.
         Because the result of a failed task execution is stored in result_backend
     """
-    worker_logger.info("Sender<%s> was error: %s at task<%s>", sender, einfo, task_id)
-    worker_logger.error("TaskId: %s, args: %s, kwargs: %s, request: %s", task_id, args, kwargs, request)
+    logger.info("Sender<%s> was error: %s at task<%s>", sender, einfo, task_id)
+    logger.error("TaskId: %s, args: %s, kwargs: %s, request: %s", task_id, args, kwargs, request)
 
 
 @celeryd_init.connect
 def bind_do_watch_task(sender, instance, conf, options, **kwargs):
     # from .utils.watcher import TaskWatcher
     # TaskWatcher()  # Auto to register task, then connect to consumer MQ message
+    logger.warning("Celery worker command is started!")
     pass
 
 

@@ -18,8 +18,8 @@ from kombu import Queue
 
 from .amqp import Amqp
 from ..conf import CeleryConfig as Config
-from ..utils.watcher import TaskWatcher
-from ..exceptions import CeleryVersionError
+from ..core.watcher import TaskWatcher
+from ..core.exceptions import CeleryVersionError
 
 __all__ = ["TaskContext", "TaskSender"]
 

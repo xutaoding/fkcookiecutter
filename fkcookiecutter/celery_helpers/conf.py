@@ -5,25 +5,34 @@ import environs
 from kombu import Exchange, Queue
 from celery.schedules import crontab
 
-from .utils.autodiscover import autodiscover_task_imports, autodiscover_task_list
-
-env = environs.Env()
-package_name = __package__.split('.')[0]
-current_path_list = __file__.split(os.sep)
-project_path = os.sep.join(current_path_list[:current_path_list.index(package_name) + 1])
-env.read_env(path=os.path.join(project_path, 'confif', '.env', 'celery'))
-
-_app_env = env.str("APP_ENV", "DEV")
-logging.warning("CeleryConfig go into env[%s]", _app_env)
+from .core.autodiscover import autodiscover_task_imports, autodiscover_task_list
 
 __all__ = ["CeleryConfig"]
 
 
-class HelperConfig:
-    APP_ENV = _app_env
-    APP_NAME = env.str("APP_NAME")
+def get_dotenv_config_path() -> str:
+    package_name = __package__.split('.')[0]
+    current_path_list = __file__.split(os.sep)
+    index = current_path_list.index(package_name)
+    project_path = os.sep.join(current_path_list[: index + 1])
 
-    # #################### User-Defined Configuration #######################
+    return os.path.join(project_path, 'config', '.env', 'celery')
+
+
+def load_environs():
+    env = environs.Env()
+    env.read_env(path=get_dotenv_config_path())
+
+
+load_environs()
+logging.warning("CeleryConfig go into env[%s]", os.getenv("APP_ENV", "DEV"))
+
+
+class HelperConfig:
+    """ User-Defined Configuration """
+    APP_ENV = os.getenv("APP_ENV", "DEV")
+    APP_NAME = os.getenv("APP_NAME")
+
     # Send Raw Message to `AMPQ` config
     CELERY_NATIVE_AMQP = "%s.hooks.amqp:Amqp" % __name__.rsplit(".", 1)[0]
 
@@ -38,12 +47,10 @@ class HelperConfig:
     # }
 
     CELERY_TASK_WATCHER = False  # Watch task to monitor
-    # #################### User-Defined Configuration #######################
 
 
 class BaseCeleryConfig:
-    """ Celery basic configuration """
-    # #################### Celery Standard Configuration ####################
+    """ Celery Standard basic configuration """
     CELERY_TIMEZONE = "Asia/Shanghai"
     CELERY_ENABLE_UTC = False
 
@@ -107,13 +114,11 @@ class BaseCeleryConfig:
     # 设置默认的队列名称，如果一个消息不符合其他的队列就会放在默认队列里面，如果什么都不设置的话，数据都会发送到默认的队列中
     # CELERY_DEFAULT_QUEUE = "default"
 
-    # #################### Celery Standard Configuration ####################
-
 
 class QueueRouteConfig(object):
     """ Router config of RabbitMQ Queue """
     # User defined: CELERY_NOT_IMPORTS_TASKS => Tasks that do not need to be performed(useless task)
-    if _app_env == 'DEV':
+    if os.getenv("APP_ENV", "DEV") == 'DEV':
         CELERY_NOT_IMPORTS_TASKS = []
     else:
         CELERY_NOT_IMPORTS_TASKS = []
@@ -150,7 +155,7 @@ class QueueRouteConfig(object):
 
 
 class CeleryConfig(BaseCeleryConfig, HelperConfig, QueueRouteConfig):
-    if _app_env == 'DEV':
+    if os.getenv("APP_ENV", "DEV") == 'DEV':
         BROKER_URL = "redis://{user}:{pwd}@{host}:{port}/{virtual_host}".format(
             user=os.getenv("REDIS:DEV:USER"), pwd=os.getenv("REDIS:DEV:PASSWORD"),
             host=os.getenv("REDIS:DEV:HOST"), port=os.getenv("REDIS:DEV:PORT"),

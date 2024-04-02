@@ -20,7 +20,8 @@ class Amqp(AMQP):
                    time_limit=None, soft_time_limit=None,
                    create_sent_event=False, root_id=None, parent_id=None,
                    shadow=None, chain=None, now=None, timezone=None,
-                   origin=None, ignore_result=False, argsrepr=None, kwargsrepr=None):
+                   origin=None, ignore_result=False, argsrepr=None, kwargsrepr=None,
+                   stamped_headers=None, replaced_task_nesting=0, **options):
         args = args or ()
         kwargs = kwargs or {}
         lang = kwargs.pop("lang", None) or self.lang
@@ -72,7 +73,10 @@ class Amqp(AMQP):
         ) if create_sent_event else None
         payload = self.get_payload(args, kwargs, lang=lang)
 
-        return task_message(headers=headers, properties=properties, body=payload, sent_event=sent_event)
+        return task_message(
+            headers=headers, properties=properties,
+            body=payload, sent_event=sent_event
+        )
 
     def get_payload(self, args, kwargs, lang=None):
         lang = lang or self.lang  # python, java, go

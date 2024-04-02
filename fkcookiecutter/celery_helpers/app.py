@@ -54,6 +54,5 @@ def debug_task(self):
 
 
 # Dynamic import celery signals
-app_name = os.environ.get("APP_NAME")
-import_module('.signals', package=__package__)
+import_module('.hooks.signals', package=__package__)
 celery_app = app
