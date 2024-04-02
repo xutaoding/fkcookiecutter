@@ -8,7 +8,6 @@ from celery.schedules import crontab
 from .utils.autodiscover import autodiscover_task_imports, autodiscover_task_list
 
 env = environs.Env()
-print(__package__, __file__)
 package_name = __package__.split('.')[0]
 current_path_list = __file__.split(os.sep)
 project_path = os.sep.join(current_path_list[:current_path_list.index(package_name) + 1])
