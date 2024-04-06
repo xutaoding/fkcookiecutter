@@ -2,6 +2,7 @@
 """The app module, containing the app factory function."""
 import logging
 import sys
+from importlib import import_module
 
 from flask import Flask, render_template
 
@@ -52,6 +53,12 @@ def register_extensions(app):
 def register_blueprints(app):
     """Register Flask blueprints."""
     app.register_blueprint(user.views.blueprint)
+
+    # Register celery_helper.beat package
+    beat_pkg = import_module(__package__ + ".celery_helper.beat")
+    beat_bp = getattr(beat_pkg, 'blueprint', None)
+    beat_bp and app.register_blueprint(beat_bp)
+
     return None
 
 

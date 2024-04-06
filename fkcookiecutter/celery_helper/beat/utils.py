@@ -1,4 +1,9 @@
 """Utilities."""
+from importlib import import_module
+
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+
 from . import timezone
 
 is_aware = timezone.is_aware
@@ -7,6 +12,22 @@ NEVER_CHECK_TIMEOUT = 100000000
 
 # see Issue #222
 now_localtime = getattr(timezone, 'template_localtime', timezone.localtime)
+
+
+class LookupFlaskApp:
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, "_instance"):
+            cls._instance = object.__new__(cls, *args, **kwargs)
+
+            app = Flask('flask_celery_helper')
+            app.config.from_object('config.settings')
+
+            db = SQLAlchemy()
+            db.init_app(app)
+
+            cls._instance.app = app
+
+        return cls._instance.app
 
 
 def make_aware(value):
@@ -41,7 +62,7 @@ def is_database_scheduler(scheduler):
 
     from .schedulers import DatabaseScheduler
     return (
-        scheduler == 'django'
+        scheduler == 'flask'
         or issubclass(symbol_by_name(scheduler), DatabaseScheduler)
     )
 
@@ -79,3 +100,7 @@ def make_hashable(value):
         # Non-hashable, non-iterable.
         raise
     return value
+
+
+flask_app = LookupFlaskApp()
+settings = flask_app.config

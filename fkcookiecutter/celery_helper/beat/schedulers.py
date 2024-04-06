@@ -8,17 +8,14 @@ from celery import current_app, schedules
 from celery.beat import ScheduleEntry, Scheduler
 from celery.utils.log import get_logger
 from celery.utils.time import maybe_make_aware
-from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
-from django.db import close_old_connections, transaction
-from django.db.utils import DatabaseError, InterfaceError
+from sqlalchemy.exc import NoResultFound, DatabaseError, InterfaceError, ResourceClosedError
 from kombu.utils.encoding import safe_repr, safe_str
 from kombu.utils.json import dumps, loads
 
 from .clockedschedule import clocked
 from .models import (ClockedSchedule, CrontabSchedule, IntervalSchedule,
                      PeriodicTask, PeriodicTasks, SolarSchedule)
-from .utils import NEVER_CHECK_TIMEOUT
+from .utils import NEVER_CHECK_TIMEOUT, settings, flask_app
 
 # This scheduler must wake up more frequently than the
 # regular of 5 minutes because it needs to take external
@@ -31,6 +28,8 @@ Cannot add entry %r to database schedule: %r. Contents: %r
 
 logger = get_logger(__name__)
 debug, info, warning = logger.debug, logger.info, logger.warning
+
+db = flask_app.extensions['sqlalchemy']
 
 
 class ModelEntry(ScheduleEntry):
@@ -125,7 +124,10 @@ class ModelEntry(ScheduleEntry):
             self.model.enabled = False
             self.model.total_run_count = 0  # Reset
             self.model.no_changes = False  # Mark the model entry as changed
-            self.model.save()
+
+            db.session.add(self.model)
+            db.session.commit()
+
             # Don't recheck
             return schedules.schedstate(False, NEVER_CHECK_TIMEOUT)
 
@@ -154,7 +156,7 @@ class ModelEntry(ScheduleEntry):
     def save(self):
         # Object may not be synchronized, so only
         # change the fields we care about.
-        obj = type(self.model)._default_manager.get(pk=self.model.pk)
+        obj = type(self.model).query.get(self.model.pk)
         for field in self.save_fields:
             setattr(obj, field, getattr(self.model, field))
 
@@ -166,16 +168,29 @@ class ModelEntry(ScheduleEntry):
             schedule = schedules.maybe_schedule(schedule)
             if isinstance(schedule, schedule_type):
                 model_schedule = model_type.from_schedule(schedule)
-                model_schedule.save()
                 return model_schedule, model_field
         raise ValueError(
             f'Cannot convert schedule type {schedule!r} to model')
 
     @classmethod
     def from_entry(cls, name, app=None, **entry):
-        obj, created = PeriodicTask._default_manager.update_or_create(
-            name=name, defaults=cls._unpack_fields(**entry),
-        )
+        new_entry = {}
+        entry = dict(name=name, **cls._unpack_fields(**entry))
+        fk_fields = [item[2] for item in cls.model_schedules]
+
+        for k, v in entry.items():
+            if k in fk_fields:
+                new_entry['%s_id' % k] = v.id if v is not None else v
+            else:
+                new_entry[k] = v
+
+        obj = PeriodicTask.query.filter_by(**new_entry).first()
+
+        if obj is None:
+            obj = PeriodicTask(**new_entry)
+            db.session.add(obj)
+            db.session.commit()
+
         return cls(obj, app=app)
 
     @classmethod
@@ -237,6 +252,8 @@ class DatabaseScheduler(Scheduler):
             or self.app.conf.beat_max_loop_interval
             or DEFAULT_MAX_INTERVAL)
 
+        self.db = flask_app.extensions["sqlalchemy"]
+
     def setup_schedule(self):
         self.install_default_entries(self.schedule)
         self.update_from_dict(self.app.conf.beat_schedule)
@@ -244,7 +261,11 @@ class DatabaseScheduler(Scheduler):
     def all_as_schedule(self):
         debug('DatabaseScheduler: Fetching database schedule')
         s = {}
-        for model in self.Model.objects.enabled():
+
+        enabled_queryset = self.Model.get_enabled()
+        print('enabled_queryset:', enabled_queryset)
+
+        for model in enabled_queryset:
             try:
                 s[model.name] = self.Entry(model, app=self.app)
             except ValueError:
@@ -253,15 +274,13 @@ class DatabaseScheduler(Scheduler):
 
     def schedule_changed(self):
         try:
-            close_old_connections()
-
             # If MySQL is running with transaction isolation level
             # REPEATABLE-READ (default), then we won't see changes done by
             # other transactions until the current transaction is
             # committed (Issue #41).
             try:
-                transaction.commit()
-            except transaction.TransactionManagementError:
+                db.session.commit()
+            except ResourceClosedError:
                 pass  # not in transaction management.
 
             last, ts = self._last_timestamp, self.Changes.last_change()
@@ -295,14 +314,12 @@ class DatabaseScheduler(Scheduler):
         _tried = set()
         _failed = set()
         try:
-            close_old_connections()
-
             while self._dirty:
                 name = self._dirty.pop()
                 try:
                     self.schedule[name].save()
                     _tried.add(name)
-                except (KeyError, ObjectDoesNotExist):
+                except (KeyError, NoResultFound):
                     _failed.add(name)
         except DatabaseError as exc:
             logger.exception('Database error while sync: %r', exc)
@@ -317,11 +334,10 @@ class DatabaseScheduler(Scheduler):
 
     def update_from_dict(self, mapping):
         s = {}
+
         for name, entry_fields in mapping.items():
             try:
-                entry = self.Entry.from_entry(name,
-                                              app=self.app,
-                                              **entry_fields)
+                entry = self.Entry.from_entry(name, app=self.app, **entry_fields)
                 if entry.model.enabled:
                     s[name] = entry
 

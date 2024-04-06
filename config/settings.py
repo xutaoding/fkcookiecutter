@@ -27,6 +27,6 @@ SQLALCHEMY_DATABASE_URI = env.str(
     "DATABASE_URL",
     default='mysql+pymysql://root:root@127.0.0.1:3306/fkcookiecutter?charset=utf8'
 )
-SQLALCHEMY_TRACK_MODIFICATIONS = False
+SQLALCHEMY_TRACK_MODIFICATIONS = True
 
-
+TIME_ZONE = None

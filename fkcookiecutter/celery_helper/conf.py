@@ -84,9 +84,8 @@ class BaseCeleryConfig:
 
     CELERY_RESULT_EXPIRES = 24 * 60 * 60  # 任务结果的过期时间，定期(periodic)任务好像会自动清理
 
-    # `flask-celery-beat` DatabaseScheduler (该库暂时没有实现)
-    # CELERYBEAT_SCHEDULER = "flask_celery_beat.schedulers:DatabaseScheduler"
-    # CELERYBEAT_SCHEDULER = "%s.hooks.schedulers:DatabaseScheduler" % __name__.rsplit(".", 1)[0]
+    # `flask-celery-beat` celery_helper.beat.schedulers:DatabaseScheduler (测试中)
+    CELERYBEAT_SCHEDULER = "%s.hooks.schedulers:DatabaseScheduler" % __package__
 
     # CELERY_TRACK_STARTED = True
 
@@ -114,6 +113,17 @@ class BaseCeleryConfig:
     # 设置默认的队列名称，如果一个消息不符合其他的队列就会放在默认队列里面，如果什么都不设置的话，数据都会发送到默认的队列中
     # CELERY_DEFAULT_QUEUE = "default"
 
+    # Periodic Tasks
+    CELERYBEAT_SCHEDULE = {
+        # Special task: celery helper demo task
+        "test_celery_helper_demo": {
+            'task': '%s.demo.test_celery_helper_demo' % __package__,
+            'schedule': crontab(),  # Execute per minute
+            'args': (),
+            'kwargs': dict(),
+        },
+    }
+
 
 class QueueRouteConfig(object):
     """ Router config of RabbitMQ Queue """
@@ -125,7 +135,7 @@ class QueueRouteConfig(object):
 
     CELERY_IMPORTS = autodiscover_task_imports()
 
-    # User defined: _expected_task_list => get fully expected celery tasks
+    # Custom: expected_task_list => get fully expected celery tasks
     expected_task_list = autodiscover_task_list(CELERY_IMPORTS, not_import_tasks=CELERY_NOT_IMPORTS_TASKS)
 
     CELERY_QUEUES = [
@@ -168,16 +178,4 @@ class CeleryConfig(BaseCeleryConfig, HelperConfig, QueueRouteConfig):
             host=os.getenv("RABBITMQ:PRD:HOST"), port=os.getenv("RABBITMQ:PRD:PORT"),
             virtual_host=os.getenv("RABBITMQ:PRD:VIRTUAL_HOST"),
         )
-
-    # Periodic Tasks
-    CELERYBEAT_SCHEDULE = {
-        # Special task: Monitors whether a task continues to be executed
-        "monitor_all_periodic_tasks": {
-            'task': '%s.apps.xxx.tasks.task_periodic_ding_message.monitor_all_periodic_tasks' % __name__.split(".", 1)[0],
-            'schedule': crontab(),  # Execute per minute
-            'args': (),
-            'kwargs': dict(),
-        },
-
-    }
 

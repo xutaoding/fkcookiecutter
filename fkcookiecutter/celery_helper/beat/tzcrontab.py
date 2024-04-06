@@ -1,4 +1,5 @@
 """Timezone aware Cron schedule Implementation."""
+import pytz
 from collections import namedtuple
 from datetime import datetime, timezone
 
@@ -36,6 +37,8 @@ class TzAwareCrontab(schedules.crontab):
 
         """
         # convert last_run_at to the schedule timezone
+        if isinstance(self.tz, (str, bytes)):
+            self.tz = pytz.timezone(self.tz)
         last_run_at = last_run_at.astimezone(self.tz)
 
         rem_delta = self.remaining_estimate(last_run_at)

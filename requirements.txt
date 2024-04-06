@@ -38,8 +38,11 @@ Flask-DebugToolbar==0.14.1
 # Environment variable parsing
 environs==11.0.0
 
-celery==5.3.6
+celery>=5.2.3,<6.0
 redis==5.0.3
 requests==2.31.0
 tornado==6.4
-crontab==1.0.1
+python-crontab>=3.0.0
+cron-descriptor>=1.4.3
+pytz
+tzdata

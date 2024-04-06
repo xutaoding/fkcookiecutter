@@ -83,6 +83,9 @@ def autodiscover_task_imports(packages=None, related_name='tasks', task_prefix='
                         logger.warning("autodiscover_task_imports ===>>> Celery task module: %s", completed_task_path)
 
     logger.warning("======>>>>> The discovery tasks are as below\n")
+
+    # Add celery helper demo
+    task_imports.append('%s.demo' % __package__.rsplit('.', 1)[0])
     return task_imports
 
 

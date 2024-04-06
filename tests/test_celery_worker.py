@@ -4,7 +4,7 @@ import sys
 pkg_path = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(pkg_path)
 
-from fkcookiecutter.celery_helpers.app import celery_app
+from fkcookiecutter.celery_helper.app import celery_app
 
 # DEV
 # os.environ.setdefault("APP_ENV", "DEV")
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     /bin/bash -c "source /home/.virtualenv/.setenv_fosun_circle.sh && 
     /home/.virtualenv/fosun_circle_running/bin/celery -A config.celery worker -l info -P gevent --concurrency=50 -n worker1@%%h"
     """
-    celery_app.worker_main(argv=["-A", "fkcookiecutter.celery_helpers.app", "worker", '-P', 'threads', "-l", "info", "-c", "200"])
+    celery_app.worker_main(argv=["-A", "fkcookiecutter.celery_helper.app", "worker", '-P', 'threads', "-l", "info", "-c", "200"])
 
     # OK
     # worker = celery_app.Worker(
